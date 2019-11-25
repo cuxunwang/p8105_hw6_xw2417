@@ -89,7 +89,8 @@ train_df %>%
 
 **Comments:** The plot above shows model residuals against fitted values in the simple linear model of baby's birth weight and mother's weight gain. We can see the baby's birth weight is mostly between 3,000 to 3,250 grams, and the residuals are mostly distributed around 0 from -1,000 to 1000 grams. The mean residual is `r round(mean(pull(train_df %>% add_residuals(mother_weight_gain_mod), resid)), digit = 2)`, which is not far from 0. So the model is not too bad.
 
-The code chunk below compares my model to two other:
+The code chunk below compares my model to two others:
+
 *  using length at birth and gestational age as predictors
 *  using head circumference, length, sex, and all interactions between these
 
@@ -149,9 +150,11 @@ weather_df =
 We are focuses on a simple linear regression with `tmax` as the response and `tmin` as the predictor, and analyzes the distribution of two quantities estimated from these data. The code chunk below generates the dataset `boot_straps_df` with these two quantities.
 
 ```{r bootstrap_study}
+set.seed(1)
+
 boot_straps = 
   weather_df %>% 
-  bootstrap(n = 3)
+  bootstrap(n = 5000)
 
 boot_straps_df = 
   boot_straps %>% 
@@ -174,9 +177,33 @@ boot_straps_df =
 boot_straps_df
 
 r_squared = pull(boot_straps_df, r.squared)
+log_beta0_beta1 = pull(boot_straps_df, log_beta0_beta1)
 
-low_quantile = quantile(r_squared, probs = c(0.025, 0.975))[[1]]
-high_quantile = quantile(r_squared, probs = c(0.025, 0.975))[[2]]
+r_low_quantile = quantile(r_squared, probs = c(0.025, 0.975))[[1]]
+r_high_quantile = quantile(r_squared, probs = c(0.025, 0.975))[[2]]
+
+log_low_quantile = quantile(log_beta0_beta1, probs = c(0.025, 0.975))[[1]]
+log_high_quantile = quantile(log_beta0_beta1, probs = c(0.025, 0.975))[[2]]
 ```
 
-In the `boot_straps_df` dataset, the 2.5% quantile is `r low_quantile` and the 97.5% quantile is `r high_quantile`.
+In the `boot_straps_df` dataset, the 2.5% quantile for r^2 is `r round(r_low_quantile, digit = 3)` and the 97.5% quantile for r^2 is `r round(r_high_quantile, digit = 3)`. The 2.5% quantile for log(β^0∗β^1) is `r round(log_low_quantile, digit = 3)` and the 97.5% quantile for r^2 is `r round(log_high_quantile, digit = 3)`. Next, I plot the distribution of my estimates between 2.5% and 97.5% quantiles to provide a 95% confidence interval by the code chunk below.
+
+```{r}
+boot_straps_df %>% 
+  filter(r.squared >= r_low_quantile, r.squared <= r_high_quantile) %>%
+  ggplot(aes(x = r.squared)) + geom_density() +
+  labs(
+    title = "Distribution of r_squared estimates"
+  )
+
+boot_straps_df %>% 
+  filter(log_beta0_beta1 >= log_low_quantile, log_beta0_beta1 <= log_high_quantile) %>%
+  ggplot(aes(x = log_beta0_beta1)) + geom_density() +
+  labs(
+    title = "Distribution of log(β^0∗β^1) estimates",
+    x = "log(β^0∗β^1)"
+  )
+```
+
+**Comments:** The plots above show the density distributions of two quantities estimated from 5,000 bootstrap samples from the 2017 Central Park weather data. The r_squared distribution has a relatively heavy tail extending to low values while the log(β^0∗β^1) distribution has a big peak and a small peak with a relatively normal distribution. Both the distribution features may be related to the frequency with which large outliers are included in the bootstrap samples.
+
